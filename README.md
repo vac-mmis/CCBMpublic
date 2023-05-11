@@ -1,3 +1,8 @@
+This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](http://creativecommons.org/licenses/by-nc-sa/4.0/).
+![by-nc-sa](https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png "Logo CC-by-nc-sa")
+For details view the [Licence file](../blob/master/LICENSE)!
+
+
 # Computational Causal Behaviour Models (CCBM)
 The purpose of the CCBM system is to describe the behavior of dynamic systems, that is systems whose state changes over time. To achieve this, CCBM follows a symbolic approach that uses precondition-effect rules to define the causal model of the domain it operates on. The user may specifiy this domain with its possible actions, preconditions and effects as well as the problem, via the planning domain definition language (PDDL). Also specified by the user is a sequence of observations which is read by the system to estimate possible action trajectories via Bayesian filtering. The CCBM toolkit allows to generate several types of filters - Hidden Markov Model, Particle Filter or Marginal Filter - out of defined causal model. These filters in turn allow to track actions and states for the provided observations.
 
