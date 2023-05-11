@@ -2,7 +2,7 @@ This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareA
 
 ![by-nc-sa](https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png "Logo CC-by-nc-sa")
 
-For details view the [Licence file](../blob/master/LICENSE)!
+For details view the [Licence file](LICENSE)!
 
 ---
 
