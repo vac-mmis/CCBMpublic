@@ -1,0 +1,47 @@
+Particle filter for domain: "abc", problem: "abc1", single agent mode
+Read 64386 state records from old_out/p.states
+*** at time 2: resampling (Neff=809)
+*** at time 3: resampling (Neff=1861)
+*** at time 5: resampling (Neff=770)
+*** at time 7: resampling (Neff=919)
+*** at time 9: resampling (Neff=1288)
+*** at time 11: resampling (Neff=501)
+*** at time 14: resampling (Neff=1439)
+*** at time 16: resampling (Neff=429)
+*** at time 17: resampling (Neff=1985)
+*** at time 20: resampling (Neff=1718)
+*** at time 22: resampling (Neff=1281)
+*** at time 24: resampling (Neff=465)
+*** Final log-likelihood: -29.2323
+    Finishing time:       26
+Dead: 7661, running: 2339, successful: 2970
+*** Best successful particle: 1, weight: 0.000427533
+Particle [30] history:
+0 NULL: * INITIALIZE
+1 NULL: * (enter alice)
+2 NULL: * (goto alice door printer)
+3 NULL: * (repair-printer alice)
+4 NULL: * (goto alice printer paper-stack)
+5 NULL: * (fetch alice paper paper-stack)
+6 NULL: * (goto alice paper-stack printer)
+7 NULL: * (enter bob)
+8 NULL: * (goto bob door water-tap)
+9 NULL: * (replenish alice paper printer)
+10 NULL: * (print b)
+11 NULL: * (goto alice printer coffee-jar)
+12 NULL: * (fetch bob water water-tap)
+13 NULL: * (print c)
+14 NULL: * (fetch alice ground-coffee coffee-jar)
+15 NULL: * (print a)
+16 NULL: * (goto bob water-tap coffee-machine)
+17 NULL: * (goto alice coffee-jar coffee-machine)
+18 NULL: * (replenish alice ground-coffee coffee-machine)
+19 NULL: * (replenish bob water coffee-machine)
+20 NULL: * (get-coffee bob)
+21 NULL: * (get-coffee alice)
+22 NULL: * (goto bob coffee-machine door)
+23 NULL: * (exit bob)
+24 NULL: * (goto alice coffee-machine door)
+25 NULL: * (exit alice)
+26 NULL: * (*****JAM-PRINTER******)
+26: (SUCCESS)

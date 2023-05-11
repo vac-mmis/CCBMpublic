@@ -1,0 +1,4 @@
+style=attach # opening braces are on the same line
+indent=spaces=4 # indent by 4 spaces
+pad-header # space between if (...)
+lineend=linux

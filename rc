@@ -1,0 +1,367 @@
+#!/bin/bash
+
+# Find true location of rc script
+scriptpath=$(readlink $0)
+if [ -z $scriptpath ]; then scriptpath=$0; fi
+RC3HOME=$(cd $(dirname $scriptpath); pwd)
+
+if [[ $# -ge 1 && "$1" == "--home" ]] ; then echo $RC3HOME; exit 0; fi
+
+# set default CXX and CC variables, if user did not specify otherwise
+[[ -z $CXX ]] && CXX=g++
+
+if [[ -z $CC ]]; then
+    # get the CC binary from the CXX binary
+    if [[ "$CXX" == *clang++* ]]; then
+        CC=${CXX/clang++/clang}
+    elif [[ "$CXX" == *g++* ]]; then
+        CC=${CXX/g++/gcc}
+    else
+        # unknown compiler name
+        echo "Please specify your C compiler in \$CC. I cannot guess its name from \$CXX='$CXX'."
+        exit 1
+    fi
+
+    # test if CC really exists (is in $PATH)
+    if ! which "$CC" >& /dev/null; then
+        echo "Please specify your C compiler in \$CC. I cannot guess its name from \$CXX='$CXX'."
+        echo "My guess '$CC' does not exist and is not in \$PATH."
+        exit 1
+    fi
+fi
+
+RC3SRC=${RC3HOME}/src
+RC3GEN=${RC3HOME}/RCGen/rcg
+
+historysizedefault=701
+timedefault=10000
+verbositydefault=1
+
+stoponsuccess=0
+multiagentmode=1
+hasrouter=0
+generate=TRUE
+compile=TRUE
+
+filter=TRUE
+marginal=TRUE
+analyzer=TRUE
+validator=TRUE
+obstester=FALSE
+simulator=FALSE
+anntrainer=FALSE
+hmm=FALSE
+
+# $1: new file
+# $2: target file
+# Replaces $2 with $1 if $1 and $2 differ, otherwise simply delete $1
+# Result: $2 is always identical to $1, $1 has been deleted
+# Purpose: avoid touching files so they do not need to be compiled again
+function moveFileIfNewer() {
+    diff -Nq "$1" "$2" &> /dev/null
+    if [[ $? -ne 0 ]]; then
+        # files differ
+        mv "$1" "$2"
+    else
+        # files do not differ
+        rm "$1"
+    fi
+}
+
+function usage() {
+cat <<EOF
+Usage: $0 -d <domain> -p <problem> [options]
+Options:
+  --home            print home directory to stdout and exit
+  -G                Do not optimize code (for debugging)
+  -a                enable ACT-R heuristics (sal, rec, ref, spec)
+  -c                don't run compiler [deprecated, use -M -]
+  -f <name>         Filter name (default: <problem>-filter)
+  -g                don't run generator
+  -h <number>       History table size (default: $historysizedefault)
+  -m                don't use multi agent mode
+  -n <number>       set a default number of particles, may be changed at runtime
+  -o <name>         Observation model name (default: <domain>-observations)
+  -O                Use dummy observations
+  -s                Stop on success
+  -t <number>       Maximum number of time steps (default $timedefault)
+  -T                create tester for observation models [deprecated, use -M O]
+  -u                Generate state space analyzer (<problem>-analyzer)
+  -v <number>       Verbosity (default $verbositydefault) 0 means no messages
+  -M [FHMAVOS]      Only create Filter, HMM (analytic filter), Analyzer, Marginal filter, Validator, Simulator and/or Observation tester (default: FMAV)
+  -w <directory>    Set directory for model files
+  -W                Dont weed out irrelevant actions
+  -b                Enable run-time bound checks for numeric fluents (for debugging purposes)
+  -x                Give extended generator diagnostics
+  -C <opts>         Pass options to compiler
+  -F [CDTLP]        Generate different model files: C-code (for binaries), DNF, Type hierarchy, LoLa, PRISM model checker (default: C)
+  -j <num>          Use <num> parallel jobs when compiling
+Location of RC3: $RC3HOME
+EOF
+}
+
+# directory where to put (intermediate) generated files
+directory=.
+# directory where the binaries should be put
+filterdir=.
+
+optimize=1
+makeFlags=()
+
+# option passed to rcg -F flag
+# default is C: we always want C code to be generated
+rcg_output=C
+
+while getopts "GOabcd:f:gj:Hh:mn:o:p:st:Tuv:M:w:x:WC:F:?" option
+do
+    case "$option" in
+        G) optimize=0;;
+        O) explicitobservations=${RC3SRC}/dummyobs;;
+        a) CXXFLAGS_ADD+=" -DUSE_ACTR_HEURISTICS";;
+        b) boundCheck=-b;;
+        c) compile=FALSE;;
+        d) domainfile=$OPTARG;;
+        f) if [[ -z ${OPTARG##*/} ]]; then
+            # the argument ends with a slash - only set the output directory
+            filterdir="${OPTARG%/}" # remove trailing slash
+           else
+            # the argument has a filename in it - set both directory and filename
+            filterdir="$(dirname $OPTARG)"
+            filterbase="$(basename $OPTARG)"
+           fi
+           ;;
+        g) generate=FALSE;;
+        h) historyisze=$OPTARG;;
+        m) multiagentmode=0;;
+        n) nparticles=$OPTARG;;
+        o) explicitobservations=$OPTARG;;
+        p) problemfile=$OPTARG;;
+        s) stoponsuccess=1;;
+        t) timesteps=$OPTARG;;
+        T) obstester=TRUE;;
+        u) hasrouter=1;;
+        v) verbosity=$OPTARG;;
+        M)  filter=FALSE; marginal=FALSE; hmm=FALSE
+            analyzer=FALSE; validator=FALSE
+            obstester=FALSE; simulator=FALSE
+            anntrainer=FALSE
+            [[ $OPTARG =~ F ]] && filter=TRUE
+            [[ $OPTARG =~ H ]] && hmm=TRUE
+            [[ $OPTARG =~ M ]] && marginal=TRUE
+            [[ $OPTARG =~ A ]] && analyzer=TRUE
+            [[ $OPTARG =~ V ]] && validator=TRUE
+            [[ $OPTARG =~ O ]] && obstester=TRUE
+            [[ $OPTARG =~ S ]] && simulator=TRUE
+            [[ $OPTARG =~ T ]] && anntrainer=TRUE
+            ;;
+        w) directory=${OPTARG%/};; # remove trailing / from directory
+        W) weedOut=-w;;
+        x) extendedinfo=-x;;
+        C) CXXFLAGS_ADD+=" $OPTARG";;
+        F) rcg_output="$OPTARG";;
+        j) makeFlags+=("-j$OPTARG");;
+        ?) usage $0; exit;;
+    esac
+done
+
+# when getopts returns with failure, it may not have processed all options, but encountered an error
+if [ $OPTIND -le $# ]; then
+    echo rc: invalid option ${!OPTIND}
+    exit 1
+fi
+
+if [ -z "$domainfile" -o -z "$problemfile" ]; then  usage $0; exit 1; fi
+if [ ! -f "$domainfile" ]; then echo "No such file: $domainfile"; exit 1; fi
+if [ ! -f "$problemfile" ]; then echo "No such file: $problemfile"; exit 1; fi
+if [ ! -d "$directory"/ ]; then echo "No such directory: $directory"; exit 1; fi
+
+if [[ -z $filterbase ]]; then filterbase=$(basename $problemfile .pddl); fi
+
+CXX_VER=$("$CXX" -dumpversion | cut -d. -f1,2)
+CXX_MAJ=${CXX_VER%.*}
+CXX_MIN=${CXX_VER#*.}
+
+if [[ -z "$CXXFLAGS" ]]; then
+    # only add own/standard compiler flags if CXXFLAGS is not defined yet
+    # The standard option to set compiler flags should be -C, which keeps the default flags
+
+    # always generate warnings and debug symbols as default flags
+    # debug symbols *only* require additional disk space of the executable, not more memory or instructions at run-time
+    CXXFLAGS="-Wall -Wextra -g -pipe"
+
+    if [[ "$optimize" -ne 0 ]]; then
+        # optimizations have not been disabled
+        CXXFLAGS+=" -O2 -flto -DNVALGRIND"
+    fi
+fi
+
+CXXFLAGS+=" -std=c++11"
+
+# compiler-specific settings
+if [[ $("$CXX" --version) == *clang* ]]; then
+    LDFLAGS="-flto $LDFLAGS"
+elif [[ "$CXX" == *g++* ]]; then
+    # gcc supports parallel LTO during linking, making use of Make's jobserver (-j)
+    LDFLAGS="-flto=jobserver $LDFLAGS"
+fi
+
+# Add other CXXFLAGS
+CXXFLAGS+="$CXXFLAGS_ADD"
+
+filterparams_header="$directory/_rcparams.h"
+
+modelfile_base_new="$directory/.new_${filterbase}-model"
+modelimpl_new="$modelfile_base_new.cpp"
+modelheader_new="$modelfile_base_new.h"
+modelheader_defines_new="${modelfile_base_new}-defines.h"
+
+modelfile_base="$directory/$filterbase-model"
+modelimpl="${modelfile_base}.cpp"
+modelheader="${modelfile_base}.h"
+modelheader_defines="${modelfile_base}-defines.h"
+
+if [[ $rcg_output =~ C ]]; then
+    observations="${explicitobservations:-$(dirname "$domainfile")/$(basename "$domainfile" .pddl)-observations}"
+    observationsheader="${observations}.h"
+    observationsimpl="${observations}.cpp"
+    if [[ ! -f "$observationsheader" ]]; then echo "RC: No such file: $observationsheader"; exit 1; fi
+    if [[ ! -f "$observationsimpl" ]]; then echo "RC: No such file: $observationsimpl"; exit 1; fi
+    echo "*** Generating $modelimpl and $modelheader from $domainfile, $problemfile"
+fi
+if [ -z $rcg_output ]; then
+    echo "*** Only checking $domainfile, $problemfile"
+fi
+
+if [ $generate = TRUE ]; then
+    pushd "$RC3HOME" > /dev/null
+    make
+    RESULT=$?
+    popd > /dev/null
+    if [ $RESULT -ne 0 ]; then
+        echo "*** Generator make failed";
+        exit $RESULT;
+    fi
+
+    "${RC3GEN}" $weedOut $boundCheck $extendedinfo -p "$problemfile" -d "$domainfile" -o "$modelfile_base_new" -F "$rcg_output"
+    RESULT=$?
+    if [ $RESULT -ne 0 ]; then echo "*** Generator failed"; exit $RESULT; fi
+
+    # check for generated C source
+    if [[ $rcg_output =~ C ]]; then
+        if [ ! -f "$modelimpl_new" ]; then
+            echo "model file was not generated: $modelimpl_new"
+            exit 1
+        fi
+
+        if [ ! -f "$modelheader_new" ]; then
+            echo "model header file was not generated: $modelheader_new"
+            exit 1
+        fi
+
+        if [ ! -f "$modelheader_defines_new" ]; then
+            echo "model defines header was not generated: $modelheader_defines_new"
+            exit 1
+        fi
+
+        moveFileIfNewer "${modelimpl_new}" "${modelimpl}"
+        moveFileIfNewer "${modelheader_new}" "${modelheader}"
+        moveFileIfNewer "${modelheader_defines_new}" "${modelheader_defines}"
+    fi
+
+    # move additional files (e.g. DNF or type hierarchy) to the target output directory
+    for f in "$modelfile_base_new".*; do
+        if [ ! -f "$f" ]; then continue; fi
+        # replace the .new*-prefix by the $filterbase name
+        mv "$f" "$filterdir/${f/$modelfile_base_new/$filterbase}"
+    done
+
+
+fi
+
+# if no C output has been generated, do not compile any binaries
+if [[ ! $rcg_output =~ C ]]; then exit; fi
+
+cat >"${filterparams_header}.new" <<EOF
+#pragma once
+#define HISTORY_TABLE_SIZE ${historysize:-$historysizedefault}
+${nparticles:+#define NPARTICLES $nparticles}
+#define TimeSteps ${timesteps:-$timedefault}
+#define FINISH_ON_SUCCESS ${stoponsuccess}
+#define MULTI_AGENT_MODE_ENABLED ${multiagentmode}
+#define VERBOSITY ${verbosity:-$verbositydefault}
+EOF
+
+moveFileIfNewer "${filterparams_header}.new" "${filterparams_header}"
+
+
+if [ $compile = TRUE ]; then
+    MAKEFILE=$RC3SRC/Makefile
+
+    echo "*** Compiling"
+
+    TARGETS=()
+
+    if [ $filter = TRUE ]; then
+        TARGETS+=("$filterdir/$filterbase-filter")
+    fi
+
+    if [ $hmm = TRUE ]; then
+        TARGETS+=("$filterdir/$filterbase-hmm")
+    fi
+
+    if [ $marginal = TRUE ]; then
+        TARGETS+=("$filterdir/$filterbase-marginal")
+    fi
+
+    if [ $analyzer = TRUE ]; then
+        TARGETS+=("$filterdir/$filterbase-analyzer")
+    fi
+
+    if [ $validator = TRUE ]; then
+        TARGETS+=("$filterdir/$filterbase-validator")
+    fi
+
+    if [ $obstester = TRUE ]; then
+        TARGETS+=("$filterdir/$filterbase-observationtest")
+    fi
+
+    if [ $simulator = TRUE ]; then
+        TARGETS+=("$filterdir/$filterbase-simulator")
+    fi
+
+    if [ $anntrainer = TRUE ]; then
+        TARGETS+=("$filterdir/$filterbase-ann-train")
+    fi
+
+    echo targets: "${TARGETS[@]}"
+
+    MAKE_DEFINES=("CXX=$CXX" "CC=$CC" "CXXFLAGS=$CXXFLAGS" "LDFLAGS=$LDFLAGS" "srcdir=$RC3SRC" "OBJDIR=$directory" "BINDIR=$filterdir" "BINPFX=$filterbase-" "MODEL_HEADER_DEFINES=$modelheader_defines" "MODEL_HEADER=$modelheader" "MODEL_IMPL=$modelimpl" "OBSERVATION_MODEL_HEADER=$observationsheader" "OBSERVATION_MODEL_IMPL=$observationsimpl" "FILTER_PARAMETERS=${filterparams_header}")
+
+    # check for changed compiler flags
+    # if the script was called with different options (such as -G),
+    # we should clean the output to ensure all object files are compiled with the same settings
+    # first, create a string representing the relevant configuration
+    CONF_FILE="$directory/.rcconf"
+    CONF_STRING="${MAKE_DEFINES[@]}"
+    if [[ -e "$CONF_FILE" ]]; then
+        CONF_STRING_OLD=$(<"$CONF_FILE")
+        if [[ "$CONF_STRING" != "$CONF_STRING_OLD" ]]; then
+            echo "RC configuration changed, cleaning build directory"
+            echo "$CONF_STRING" > "$CONF_FILE"
+            make -f "$MAKEFILE" "${MAKE_DEFINES[@]}" clean
+        fi
+    else
+        echo "$CONF_STRING" > "$CONF_FILE"
+    fi
+
+    # make the targets
+    # * with the given CXXFLAGS
+    # * in the defined directory (BINDIR=$filterdir) with the appropriate name (BINPFX=$filterbase-)
+    # * creating intermediate files in $directory (OBJDIR)
+    # * using the model files (MODEL_*, OBSERVATION_MODEL_*)
+    # * using the defined paramerers (FILTER_PARAMATERS)
+    make -f "$MAKEFILE" "${makeFlags[@]}" "${MAKE_DEFINES[@]}" $MAKEFLAGS "${TARGETS[@]}"
+    RESULT=$?
+
+    if [ $RESULT -ne 0 ]; then echo "*** unable to build $1"; exit $RESULT; fi
+fi

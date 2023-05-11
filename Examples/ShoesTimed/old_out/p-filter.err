@@ -1,0 +1,15 @@
+Particle filter for domain: "shoes", problem: "shoes", single agent mode
+Read 9 state records from old_out/p.states
+*** at time 6: resampling (Neff=172.667)
+*** at time 12: resampling (Neff=108.258)
+*** Final log-likelihood: -7.42657
+    Finishing time:       14
+Dead: 325, running: 675, successful: 839
+*** Best successful particle: 2, weight: 0.00377183
+Particle [7] history:
+0 NULL: * INITIALIZE
+1 NULL: * (putOnSock left)
+5 NULL: * (putOnSock right)
+11 NULL: * (putOnShoe left)
+13 NULL: * (putOnShoe right)
+14: (SUCCESS)

@@ -1,0 +1,17 @@
+(define (domain xyrouter)
+	(:types position)
+	(:action step
+		 :parameters (?x ?y - position)
+		 :duration (exponential 0.1)
+		 :precondition (and (connected ?x ?y) (at ?x))
+		 :effect (and (not (at ?x)) (at ?y)))
+;; a hack for uncertain initial states
+;	(:action initialize
+;		 :parameters (?x - position)
+;		 :precondition (not (exists (?y - position) (at ?y)))
+;		 :effect (at ?x))
+	(:observation (forall (?l - position ?x ?y - coordinate)
+			      (when (and (at ?l) (xy-pos ?l ?x ?y))
+				(setXYcoordinates ?x ?y))))
+
+)

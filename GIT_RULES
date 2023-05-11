@@ -1,0 +1,86 @@
+Here are some basic rules for the CCBM git repository.
+These rules will help us streamlining our git work-flow and keeping a clean history.
+Having a clean history is important for
+* traceability: at every point in time, know what changes have been introduced
+* know what feature are currently developed, and what their status is
+* if required, ease bisecting (see $ git help bisect)
+
+I recommend reading the following sites:
+http://goodcode.io/blog/git-merge-rebase/
+http://nvie.com/posts/a-successful-git-branching-model/
+
+
+Develop on feature branches
+===========================
+
+All new features should be developed in a separate feature branch.
+E.g. Some new feature "fluents" should be implemented:
+$ git checkout -b "fluents"  # ideally on top of master
+
+Only small hotfixes (1-2 commits) can go directly on the master branch.
+
+
+Commit messages
+===============
+
+Always give meaningful commit messages.
+Explain what changes you integrated, why they are needed.
+Commit messages may also contain a detailed description of some algorithm that would be too long for comments in the code.
+
+Start you commit message with a short subject line, followed by an empty line.
+The following paragraphs should be separated by empty lines.
+Item lists are ok.
+Example:
+
+---
+Add important aspect of some feature.
+
+For feature x, we need to include:
+* a
+* b
+* c
+---
+
+
+Merge feature branches: stable / non fast-forward / commit messages
+======================
+
+Once a feature has been thoroughly tested and is deemed sufficiently stable, it may be integrated into the master branch.
+To explicitly indicate merging a feature back to master, never use fast-forward merges, so a merge commit will always be created.
+I would also recommend to use the --log option, so the merge commit messages contains a summary of the commits included.
+
+Example:
+$ git checkout master
+$ git merge --no-ff --log "feature"
+
+In the merge commit message, add a summary of the feature including:
+* advantages
+* how it can be enabled / used
+* If any previous feature has been changed, deprecated, is obsolete, redundant, removed
+
+
+Never merge master into a feature
+=================================
+
+Never merge master into a feature branch. This will make the history too complex, and makes merging back to master a pain.
+Most often merging master into your feature is not required.
+Ideally, all features should be independent.
+If you really desperately need to integrate master, you have to options:
+
+1. The feature branch has not been published / pushed / used anywhere.
+Thus the feature is local to you, so you may choose to rebase.
+$ git rebase master "feature"
+
+This will apply all commits of "feature" on top of master, so your work seems to have been committed on top of the current master from the beginning.
+*Note*: this will change history of your "feature" branch and thus has to be avoided if the feature branch has been published.
+
+2. The feature branch has been published.
+In this case the solution is to create a new branch on top of master and merge the old feature branch:
+
+$ git checkout master
+$ git checkout -b "feature_tmp" # create new (temporary) branch
+$ git merge "feature"           # get commits of the feature
+# fix any merge conflicts, commit
+$ git branch -f "feature"       # use the old branch name "feature" for the current branch
+$ git checkout "feature"
+$ git branch -d "feature_tmp"   # delete temporary branch name

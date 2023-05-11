@@ -1,0 +1,18 @@
+(define (problem carrots2)
+	(:domain carrots)
+	(:init
+		(isat counter)
+		(forall (?t - tool)
+			(at ?t counter)
+			)
+			(=(val 2) 2)
+         (=(val 5) 5)
+         (=(val 8) 8)
+			(=(val 10) 10)
+			(=(val 15) 15)
+      	)
+	(:goal
+		(forall (?t - tool)
+			(not (at ?t counter)))
+	)
+)

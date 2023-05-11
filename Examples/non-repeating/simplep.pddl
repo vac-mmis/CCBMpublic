@@ -1,0 +1,11 @@
+(define (problem non-repeating-simplep)
+    (:domain non-repeating-simple)
+    (:init true )
+    (:goal (and
+        (a0)
+        (a1)
+        (a2)
+        (a3)
+        (a4)
+    ))
+)

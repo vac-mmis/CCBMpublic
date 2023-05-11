@@ -1,0 +1,21 @@
+Read 9 state records from old_out/p.states
+Marginal filter for domain: "shoes", problem: "shoes", single agent mode
+*** Final log-likelihood: -7.46108
+    Finishing time:       14
+Start Smoothing at time 14
+14:sum=1
+13:sum=1.23004
+12:sum=2.55021
+11:sum=1.89321
+10:sum=5.49749
+9:sum=1.16656
+8:sum=1.13239
+7:sum=1.15333
+6:sum=1.56882
+5:sum=4.74487
+4:sum=1.19148
+3:sum=1.14541
+2:sum=1.13348
+1:sum=1.22169
+0:sum=2
+Running viterbi for time 1 2 3 4 5 6 7 8 9 10 11 12 13 14 
