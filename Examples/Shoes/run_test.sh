@@ -6,7 +6,7 @@ shift
 
 mkdir -p "$out/build"
 
-../../rc -M FMHAVSOT -n 1000 -d d.pddl -p p.pddl -o d-observations -w "$out/build" -f "$out/p" -C "-DUSE_ACTION_ESTIMATION" "$@"
+rc -M FMHAVSOT -n 1000 -d d.pddl -p p.pddl -o d-observations -w "$out/build" -f "$out/p" -C "-DUSE_ACTION_ESTIMATION" "$@"
 if [[ $? -ne 0 ]]; then exit 1; fi
 
 echo "Running filters ..."
