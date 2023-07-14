@@ -10,7 +10,7 @@ For details view the [Licence file](LICENSE)!
 
 Fast start: 
 ```
-  docker run --mount type=bind,source=".",target="/home/ccbm/OUTSIDE" -it sebastianbader/ccbm
+  docker run -it sebastianbader/ccbm
 ```
 
 Go into the shoes-example:
