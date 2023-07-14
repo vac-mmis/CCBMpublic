@@ -9,19 +9,13 @@ For details view the [Licence file](LICENSE)!
 # TLTR
 
 Fast start: 
-```
-  docker run -it sebastianbader/ccbm
-```
-
-Go into the shoes-example:
-```
-  cd Examples/Shoes
-```
-
-And run the example by invoking:
-```
-  ./run.sh MyOutput
-```
+1. Install docker (https://docs.docker.com/engine/install/)
+2. Run the CCBM-image:
+   ```docker run -it sebastianbader/ccbm```
+3. Go into the shoes-example:
+   ```cd Examples/Shoes```
+4. And run the example by invoking:
+   ```./run.sh MyOutput```
 
 ---
 
